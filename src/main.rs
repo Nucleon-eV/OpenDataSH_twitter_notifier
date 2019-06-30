@@ -8,6 +8,7 @@ extern crate log;
 extern crate serde;
 
 use std::error::Error;
+use std::fs;
 use std::path::Path;
 use std::time::Duration;
 
@@ -62,6 +63,33 @@ fn crawl_api() {
                 api.getPackageList()
                     .and_then(|data| {
                         info!("{:?}", data.result);
+                        if !Path::new("./data/").exists() {
+                            fs::create_dir_all("./data/");
+                        }
+                        if Path::new("./data/latestPackageList.json").exists() {
+                            let cache_file: &str =
+                                &fs::read_to_string("./data/latestPackageList.json").unwrap();
+                            let cache: Vec<String> = serde_json::from_str(cache_file).unwrap();
+                            let mut added_datasets: Vec<String> = vec![];
+                            let mut removed_datasets: Vec<String> = vec![];
+                            for value in &cache {
+                                if !data.result.contains(&value) {
+                                    removed_datasets.push(value.to_owned());
+                                    info!("removed: {}", value)
+                                }
+                            }
+                            for value in &data.result {
+                                if !cache.contains(&value) {
+                                    added_datasets.push(value.to_owned());
+                                    info!("added: {}", value)
+                                }
+                            }
+                        }
+                        let serialized = serde_json::to_string(&data.result).unwrap();
+                        fs::write("./data/latestPackageList.json", serialized)
+                            .expect("Unable to write latestPackageList");
+
+                        // TODO send tweet :D
                         Ok(())
                     })
                     .map_err(|e| error!("{0}", e)),
