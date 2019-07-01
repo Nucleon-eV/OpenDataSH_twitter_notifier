@@ -1,14 +1,22 @@
 use std::io::{stdin, stdout, Write};
 
+use egg_mode::tweet::DraftTweet;
 use egg_mode::Token;
+use futures::Future;
 use tokio::runtime::current_thread::block_on_all;
 
 use crate::config::Config;
 
-#[derive(Debug)]
-enum LoginStatus {
+#[derive(Debug, Clone, PartialEq)]
+pub enum LoginStatus {
     LoggedOut,
     LoggedIn,
+}
+
+impl Default for LoginStatus {
+    fn default() -> Self {
+        LoginStatus::LoggedOut
+    }
 }
 
 #[derive(Debug)]
@@ -32,7 +40,8 @@ impl Twitter {
     }
 
     pub fn login(&mut self) {
-        let tokens = &self.config.tokens;
+        let config = &self.config;
+        let tokens = &config.tokens;
 
         // Prepare twitter auth
         let con_token =
@@ -60,11 +69,56 @@ impl Twitter {
         }
 
         let (token, user_id, screen_name) =
-            block_on_all(egg_mode::access_token(con_token, &request_token, verifier)).unwrap();
+            block_on_all(egg_mode::access_token(con_token, &request_token, verifier))
+                .expect("Failed to login!");
         self.token = Some(token);
         self.user_id = Some(user_id);
         self.screen_name = Some(screen_name);
         self.logged_in = LoginStatus::LoggedIn;
+    }
+    pub fn status(&self) -> &LoginStatus {
+        return &self.logged_in;
+    }
+
+    pub fn post_changed_datasets(
+        &self,
+        added_datasets: Vec<String>,
+        removed_datasets: Vec<String>,
+    ) {
+        if self.status().to_owned() == LoginStatus::LoggedOut {
+            error!("NOT LOGGED IN TWITTER");
+            return;
+        }
+        // TODO watch the key limit
+        if !added_datasets.is_empty() {
+            let mut added_text: Vec<String> = vec![];
+            for new in added_datasets {
+                added_text.push(format!("- {}", new));
+            }
+            let tweet_text = format!("Neue Datasets:\n{}", added_text.join("\n"));
+            let tweet = DraftTweet::new(tweet_text);
+            tokio::spawn(
+                tweet
+                    .send(Option::as_ref(&self.token).unwrap())
+                    .map_err(|e| ())
+                    .and_then(|x| Ok(())),
+            );
+        }
+
+        if !removed_datasets.is_empty() {
+            let mut removed_text: Vec<String> = vec![];
+            for removed in removed_datasets {
+                removed_text.push(format!("- {}\n", removed));
+            }
+            let tweet_text = format!("Entfernte Datasets:\n{}", removed_text.join("\n"));
+            let tweet = DraftTweet::new(tweet_text);
+            tokio::spawn(
+                tweet
+                    .send(Option::as_ref(&self.token).unwrap())
+                    .map_err(|e| ())
+                    .and_then(|x| Ok(())),
+            );
+        }
     }
 
     // TODO add the sending part
