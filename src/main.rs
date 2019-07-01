@@ -7,6 +7,7 @@ extern crate log;
 #[macro_use]
 extern crate serde;
 
+use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
@@ -67,28 +68,24 @@ fn crawl_api(config_path: &str) {
             tokio::spawn(
                 api.getPackageList()
                     .and_then(move |data| {
-                        let mut added_datasets: Vec<String> = vec![];
-                        let mut removed_datasets: Vec<String> = vec![];
+                        let mut added_datasets: HashSet<String> = HashSet::new();
+                        let mut removed_datasets: HashSet<String> = HashSet::new();
                         if !Path::new("./data/").exists() {
                             fs::create_dir_all("./data/");
                         }
                         if Path::new("./data/latestPackageList.json").exists() {
-                            let cache_file: &str =
-                                &fs::read_to_string("./data/latestPackageList.json").unwrap();
-                            let cache: Vec<String> = serde_json::from_str(cache_file).unwrap();
+                            let cache_file: String =
+                                fs::read_to_string("./data/latestPackageList.json").unwrap();
+                            let cache: HashSet<String> =
+                                serde_json::from_str::<Vec<String>>(cache_file.as_str())
+                                    .unwrap()
+                                    .iter()
+                                    .cloned()
+                                    .collect();
+                            let newdata: HashSet<String> = data.result.iter().cloned().collect();
 
-                            // FIXME Use Hashset for performance: https://play.rust-lang.org/?version=stable&mode=debug&edition=2015&gist=60605a6c481be1818c38d6f3e148de6f
-                            removed_datasets = cache
-                                .iter()
-                                .filter(|x| !data.result.contains(*x))
-                                .map(|x| x.to_string())
-                                .collect();
-                            added_datasets = data
-                                .result
-                                .iter()
-                                .filter(|x| !cache.contains(x))
-                                .map(|x| x.to_string())
-                                .collect();
+                            removed_datasets = cache.difference(&newdata).cloned().collect();
+                            added_datasets = newdata.difference(&cache).cloned().collect();
                         }
                         let serialized = serde_json::to_string(&data.result).unwrap();
                         fs::write("./data/latestPackageList.json", serialized)

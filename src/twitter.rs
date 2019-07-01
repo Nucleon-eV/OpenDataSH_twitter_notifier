@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::io::{stdin, stdout, Write};
 
 use egg_mode::tweet::DraftTweet;
@@ -82,8 +83,8 @@ impl Twitter {
 
     pub fn post_changed_datasets(
         &self,
-        added_datasets: Vec<String>,
-        removed_datasets: Vec<String>,
+        added_datasets: HashSet<String>,
+        removed_datasets: HashSet<String>,
     ) {
         if self.status().to_owned() == LoginStatus::LoggedOut {
             error!("NOT LOGGED IN TWITTER");
@@ -91,10 +92,9 @@ impl Twitter {
         }
         // TODO watch the key limit
         if !added_datasets.is_empty() {
-            let mut added_text: Vec<String> = vec![];
-            for new in added_datasets.iter() {
-                added_text.push(format!("- {}", new));
-            }
+            let added_text: Vec<String> =
+                added_datasets.iter().map(|x| format!("- {}", x)).collect();
+
             let tweet_text = format!("Neue Datasets:\n{}", added_text.join("\n"));
             let tweet = DraftTweet::new(tweet_text);
             tokio::spawn(
@@ -106,10 +106,11 @@ impl Twitter {
         }
 
         if !removed_datasets.is_empty() {
-            let mut removed_text: Vec<String> = vec![];
-            for removed in removed_datasets.iter() {
-                removed_text.push(format!("- {}\n", removed));
-            }
+            let removed_text: Vec<String> = removed_datasets
+                .iter()
+                .map(|x| format!("- {}", x))
+                .collect();
+
             let tweet_text = format!("Entfernte Datasets:\n{}", removed_text.join("\n"));
             let tweet = DraftTweet::new(tweet_text);
             tokio::spawn(
