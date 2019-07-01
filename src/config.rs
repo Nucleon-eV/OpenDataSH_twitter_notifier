@@ -16,6 +16,7 @@ pub struct Tokens {
 }
 
 impl Config {
+    #[allow(dead_code)]
     pub fn save(&self, path: &str) {
         let serialized = toml::to_string(self).unwrap();
         fs::write(path, serialized).expect("Unable to write config");

@@ -67,8 +67,6 @@ fn crawl_api(config_path: &str) {
             tokio::spawn(
                 api.getPackageList()
                     .and_then(move |data| {
-                        let andthen_twitter = foreach_twitter.clone();
-                        info!("{:?}", data.result);
                         let mut added_datasets: Vec<String> = vec![];
                         let mut removed_datasets: Vec<String> = vec![];
                         if !Path::new("./data/").exists() {
@@ -78,24 +76,25 @@ fn crawl_api(config_path: &str) {
                             let cache_file: &str =
                                 &fs::read_to_string("./data/latestPackageList.json").unwrap();
                             let cache: Vec<String> = serde_json::from_str(cache_file).unwrap();
-                            for value in &cache {
-                                if !data.result.contains(&value) {
-                                    removed_datasets.push(value.to_owned());
-                                    info!("removed: {}", value)
-                                }
-                            }
-                            for value in &data.result {
-                                if !cache.contains(&value) {
-                                    added_datasets.push(value.to_owned());
-                                    info!("added: {}", value)
-                                }
-                            }
+
+                            // FIXME Use Hashset for performance: https://play.rust-lang.org/?version=stable&mode=debug&edition=2015&gist=60605a6c481be1818c38d6f3e148de6f
+                            removed_datasets = cache
+                                .iter()
+                                .filter(|x| !data.result.contains(*x))
+                                .map(|x| x.to_string())
+                                .collect();
+                            added_datasets = data
+                                .result
+                                .iter()
+                                .filter(|x| !cache.contains(x))
+                                .map(|x| x.to_string())
+                                .collect();
                         }
                         let serialized = serde_json::to_string(&data.result).unwrap();
                         fs::write("./data/latestPackageList.json", serialized)
                             .expect("Unable to write latestPackageList");
 
-                        andthen_twitter
+                        foreach_twitter
                             .lock()
                             .unwrap()
                             .post_changed_datasets(added_datasets, removed_datasets);

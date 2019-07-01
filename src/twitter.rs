@@ -92,7 +92,7 @@ impl Twitter {
         // TODO watch the key limit
         if !added_datasets.is_empty() {
             let mut added_text: Vec<String> = vec![];
-            for new in added_datasets {
+            for new in added_datasets.iter() {
                 added_text.push(format!("- {}", new));
             }
             let tweet_text = format!("Neue Datasets:\n{}", added_text.join("\n"));
@@ -100,14 +100,14 @@ impl Twitter {
             tokio::spawn(
                 tweet
                     .send(Option::as_ref(&self.token).unwrap())
-                    .map_err(|e| ())
-                    .and_then(|x| Ok(())),
+                    .map_err(|_| ())
+                    .and_then(|_| Ok(())),
             );
         }
 
         if !removed_datasets.is_empty() {
             let mut removed_text: Vec<String> = vec![];
-            for removed in removed_datasets {
+            for removed in removed_datasets.iter() {
                 removed_text.push(format!("- {}\n", removed));
             }
             let tweet_text = format!("Entfernte Datasets:\n{}", removed_text.join("\n"));
@@ -115,8 +115,8 @@ impl Twitter {
             tokio::spawn(
                 tweet
                     .send(Option::as_ref(&self.token).unwrap())
-                    .map_err(|e| ())
-                    .and_then(|x| Ok(())),
+                    .map_err(|_| ())
+                    .and_then(|_| Ok(())),
             );
         }
     }
