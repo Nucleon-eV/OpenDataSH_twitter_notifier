@@ -16,7 +16,7 @@ use std::time::Duration;
 
 use clap::App;
 use futures::future::Future;
-use futures::stream::Stream;
+use futures::Stream;
 use log::Level;
 use tokio::timer::Interval;
 
@@ -97,8 +97,7 @@ fn crawl_api(config_path: &str) {
 
     let shared_api_task = api_task.shared();
 
-    let api_taskL1 = shared_api_task.clone();
-    tokio::run(api_taskL1);
+    tokio::run(shared_api_task);
 
     let task = Interval::new_interval(Duration::from_secs(60 * 60))
         .for_each(move |instant| {
