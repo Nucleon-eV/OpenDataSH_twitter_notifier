@@ -93,18 +93,19 @@ fn crawl_api(config_path: &str) {
                 .post_changed_datasets(added_datasets, removed_datasets);
             Ok(())
         })
-        .map_err(|e| error!("{0}", e))
-        .shared();
+        .map_err(|e| error!("{0}", e));
 
-    let api_taskL1 = api_task.clone();
+    let shared_api_task = api_task.shared();
+
+    let api_taskL1 = shared_api_task.clone();
     tokio::run(api_taskL1);
 
     let task = Interval::new_interval(Duration::from_secs(60 * 60))
         .for_each(move |instant| {
             info!("fire; instant={:?}", instant);
 
-            let api_taskL = api_task.clone();
-            tokio::spawn(api_task1);
+            let api_taskL = shared_api_task.clone();
+            tokio::spawn(api_taskL);
             Ok(())
         })
         .map_err(|e| error!("interval errored; err={:?}", e));
