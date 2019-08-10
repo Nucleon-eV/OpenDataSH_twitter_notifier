@@ -58,11 +58,12 @@ fn crawl_api(config_path: &str) {
     twitter.lock().unwrap().login();
     debug!("{:?}", twitter.lock().unwrap().status());
     let global_twitter = twitter.clone();
+    let api = CkanAPI::new();
+    let foreach_twitter = global_twitter.clone();
 
     let api_task = api
         .getPackageList()
         .and_then(move |data| {
-            let foreach_twitter = global_twitter.clone();
             let mut added_datasets: HashSet<String> = HashSet::new();
             let mut removed_datasets: HashSet<String> = HashSet::new();
             if !Path::new("./data/").exists() {
@@ -100,7 +101,6 @@ fn crawl_api(config_path: &str) {
         .for_each(move |instant| {
             info!("fire; instant={:?}", instant);
 
-            let api = CkanAPI::new();
             tokio::spawn(api_task);
             Ok(())
         })
