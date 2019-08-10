@@ -63,7 +63,7 @@ fn crawl_api(config_path: &str) {
 
     let api_task = api
         .getPackageList()
-        .and_then(move |data| {
+        .and_then(|data| {
             let mut added_datasets: HashSet<String> = HashSet::new();
             let mut removed_datasets: HashSet<String> = HashSet::new();
             if !Path::new("./data/").exists() {
