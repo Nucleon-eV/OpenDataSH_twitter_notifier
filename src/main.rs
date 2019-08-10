@@ -59,10 +59,9 @@ fn crawl_api(config_path: &str) {
     debug!("{:?}", twitter.lock().unwrap().status());
     let global_twitter = twitter.clone();
 
-    let api_task = api
+    let api_task = CkanAPI::new()
         .getPackageList()
         .and_then(|data| {
-            let api = CkanAPI::new();
             let foreach_twitter = global_twitter.clone();
 
             let mut added_datasets: HashSet<String> = HashSet::new();
