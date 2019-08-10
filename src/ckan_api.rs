@@ -84,9 +84,7 @@ impl Future for GetPackageList {
                     fs::write("./data/latestPackageList.json", serialized)
                         .expect("Unable to write latestPackageList");
 
-                    foreach_twitter
-                        .lock()
-                        .unwrap()
+                    self.twitter
                         .post_changed_datasets(added_datasets, removed_datasets);
                     Ok(Async::Ready(()))
                 }
