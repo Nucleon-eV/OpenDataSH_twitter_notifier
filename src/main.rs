@@ -102,7 +102,8 @@ fn crawl_api(config_path: &str) {
         .for_each(move |instant| {
             info!("fire; instant={:?}", instant);
 
-            tokio::spawn(api_task);
+            let api_task1 = api_task.clone();
+            tokio::spawn(api_task1);
             Ok(())
         })
         .map_err(|e| error!("interval errored; err={:?}", e));
