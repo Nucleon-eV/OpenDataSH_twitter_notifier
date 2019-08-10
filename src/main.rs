@@ -63,15 +63,17 @@ fn crawl_api(config_path: &str) {
         twitter,
     };
 
-    let shared_api_task = api_task.shared();
-
-    tokio::run(shared_api_task);
+    tokio::run(api_task);
 
     let task = Interval::new_interval(Duration::from_secs(60 * 60))
         .for_each(move |instant| {
             info!("fire; instant={:?}", instant);
 
-            let api_taskL = shared_api_task.clone();
+            let api_taskL = GetPackageList {
+                response: CkanAPI::new().getPackageList(),
+                twitter,
+            };
+
             tokio::spawn(api_taskL);
             Ok(())
         })
