@@ -54,7 +54,7 @@ pub struct GetPackageList {
 
 impl Future for GetPackageList {
     type Item = ();
-    type Error = Error;
+    type Error = ();
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.response.poll() {
