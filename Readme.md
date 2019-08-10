@@ -55,7 +55,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 ## Authors
 
-* **Marcel Radzio** - *Initial work* - [PurpleBooth](https://github.com/MTRNord)
+* **Marcel Radzio** - *Initial work* - [MTRNord](https://github.com/MTRNord)
 
 See also the list of [contributors](https://github.com/Nucleon-eV/OpenDataSH_twitter_notifier/contributors) who participated in this project.
 
