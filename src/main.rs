@@ -59,46 +59,49 @@ fn crawl_api(config_path: &str) {
     debug!("{:?}", twitter.lock().unwrap().status());
     let global_twitter = twitter.clone();
 
+    let api_task = api
+        .getPackageList()
+        .and_then(move |data| {
+            let foreach_twitter = global_twitter.clone();
+            let mut added_datasets: HashSet<String> = HashSet::new();
+            let mut removed_datasets: HashSet<String> = HashSet::new();
+            if !Path::new("./data/").exists() {
+                fs::create_dir_all("./data/");
+            }
+            if Path::new("./data/latestPackageList.json").exists() {
+                let cache_file: String =
+                    fs::read_to_string("./data/latestPackageList.json").unwrap();
+                let cache: HashSet<String> =
+                    serde_json::from_str::<Vec<String>>(cache_file.as_str())
+                        .unwrap()
+                        .iter()
+                        .cloned()
+                        .collect();
+                let newdata: HashSet<String> = data.result.iter().cloned().collect();
+
+                removed_datasets = cache.difference(&newdata).cloned().collect();
+                added_datasets = newdata.difference(&cache).cloned().collect();
+            }
+            let serialized = serde_json::to_string(&data.result).unwrap();
+            fs::write("./data/latestPackageList.json", serialized)
+                .expect("Unable to write latestPackageList");
+
+            foreach_twitter
+                .lock()
+                .unwrap()
+                .post_changed_datasets(added_datasets, removed_datasets);
+            Ok(())
+        })
+        .map_err(|e| error!("{0}", e));
+
+    tokio::run(api_task);
+
     let task = Interval::new_interval(Duration::from_secs(60 * 60))
         .for_each(move |instant| {
             info!("fire; instant={:?}", instant);
-            let foreach_twitter = global_twitter.clone();
 
             let api = CkanAPI::new();
-            tokio::spawn(
-                api.getPackageList()
-                    .and_then(move |data| {
-                        let mut added_datasets: HashSet<String> = HashSet::new();
-                        let mut removed_datasets: HashSet<String> = HashSet::new();
-                        if !Path::new("./data/").exists() {
-                            fs::create_dir_all("./data/");
-                        }
-                        if Path::new("./data/latestPackageList.json").exists() {
-                            let cache_file: String =
-                                fs::read_to_string("./data/latestPackageList.json").unwrap();
-                            let cache: HashSet<String> =
-                                serde_json::from_str::<Vec<String>>(cache_file.as_str())
-                                    .unwrap()
-                                    .iter()
-                                    .cloned()
-                                    .collect();
-                            let newdata: HashSet<String> = data.result.iter().cloned().collect();
-
-                            removed_datasets = cache.difference(&newdata).cloned().collect();
-                            added_datasets = newdata.difference(&cache).cloned().collect();
-                        }
-                        let serialized = serde_json::to_string(&data.result).unwrap();
-                        fs::write("./data/latestPackageList.json", serialized)
-                            .expect("Unable to write latestPackageList");
-
-                        foreach_twitter
-                            .lock()
-                            .unwrap()
-                            .post_changed_datasets(added_datasets, removed_datasets);
-                        Ok(())
-                    })
-                    .map_err(|e| error!("{0}", e)),
-            );
+            tokio::spawn(api_task);
             Ok(())
         })
         .map_err(|e| error!("interval errored; err={:?}", e));
