@@ -93,7 +93,7 @@ fn crawl_api(config_path: &str) {
                 .post_changed_datasets(added_datasets, removed_datasets);
             Ok(())
         })
-        .map_err(|e| error!("{0}", e));
+        .map_err(|e| error!("{0}", e)).shared();
 
     tokio::run(api_task);
 
