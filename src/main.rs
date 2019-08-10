@@ -96,13 +96,14 @@ fn crawl_api(config_path: &str) {
         .map_err(|e| error!("{0}", e))
         .shared();
 
-    tokio::run(api_task);
+    let api_taskL1 = api_task.clone();
+    tokio::run(api_taskL1);
 
     let task = Interval::new_interval(Duration::from_secs(60 * 60))
         .for_each(move |instant| {
             info!("fire; instant={:?}", instant);
 
-            let api_task1 = api_task.clone();
+            let api_taskL = api_task.clone();
             tokio::spawn(api_task1);
             Ok(())
         })
