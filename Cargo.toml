@@ -4,6 +4,12 @@ version = "0.1.0"
 authors = ["Marcel Radzio <mtrnord1@gmail.com>"]
 edition = "2018"
 
+include = [
+    "src/cli.yml",
+    "**/*.rs",
+    "Cargo.toml",
+]
+
 [dependencies]
 hyper = "0.12"
 clap = {version = "~2.33.0", features = ["yaml"]}
