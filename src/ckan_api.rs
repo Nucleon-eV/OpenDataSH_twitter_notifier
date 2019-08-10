@@ -1,8 +1,16 @@
+use std::collections::HashSet;
+use std::error::Error;
+use std::fs;
+use std::path::Path;
+
+use futures::{Async, Poll};
 use futures::future::Future;
 use futures::stream::Stream;
-use hyper::client::HttpConnector;
+use hyper::client::{HttpConnector, ResponseFuture};
 use hyper::Client;
 use hyper_tls::HttpsConnector;
+
+use crate::twitter::Twitter;
 
 type HttpsClient = Client<HttpsConnector<HttpConnector>, hyper::Body>;
 
@@ -30,19 +38,69 @@ impl CkanAPI {
         CkanAPI { http }
     }
 
-    pub fn getPackageList(
-        &self,
-    ) -> Box<dyn Future<Item = PackageListResult, Error = hyper::Error> + Send> {
+    pub fn getPackageList(&self) -> ResponseFuture {
         let uri = "https://opendata.schleswig-holstein.de/api/3/action/package_list"
             .parse()
             .unwrap();
 
-        let f = self.http.get(uri).and_then(|res| {
-            res.into_body().concat2().and_then(move |body| {
-                let value: PackageListResult = serde_json::from_slice(&body).unwrap();
-                Ok(value)
-            })
-        });
-        Box::new(f)
+        self.http.get(uri)
+    }
+}
+
+pub struct GetPackageList {
+    response: ResponseFuture,
+    twitter: Twitter,
+}
+
+impl Future for GetPackageList {
+    type Item = ();
+    type Error = Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self.response.poll() {
+            Ok(Async::Ready(res)) => match res.body().poll() {
+                Ok(Async::Ready(body)) => {
+                    let data: PackageListResult = serde_json::from_slice(&body.unwrap()).unwrap();
+                    let mut added_datasets: HashSet<String> = HashSet::new();
+                    let mut removed_datasets: HashSet<String> = HashSet::new();
+                    if !Path::new("./data/").exists() {
+                        fs::create_dir_all("./data/");
+                    }
+                    if Path::new("./data/latestPackageList.json").exists() {
+                        let cache_file: String =
+                            fs::read_to_string("./data/latestPackageList.json").unwrap();
+                        let cache: HashSet<String> =
+                            serde_json::from_str::<Vec<String>>(cache_file.as_str())
+                                .unwrap()
+                                .iter()
+                                .cloned()
+                                .collect();
+                        let newdata: HashSet<String> = data.result.iter().cloned().collect();
+
+                        removed_datasets = cache.difference(&newdata).cloned().collect();
+                        added_datasets = newdata.difference(&cache).cloned().collect();
+                    }
+                    let serialized = serde_json::to_string(&data.result).unwrap();
+                    fs::write("./data/latestPackageList.json", serialized)
+                        .expect("Unable to write latestPackageList");
+
+                    foreach_twitter
+                        .lock()
+                        .unwrap()
+                        .post_changed_datasets(added_datasets, removed_datasets);
+                    Ok(Async::Ready(()))
+                }
+                Ok(Async::NotReady) => Ok(Async::NotReady),
+                Err(e) => {
+                    println!("failed to get body: {}", e);
+                    Ok(Async::Ready(()))
+                }
+            },
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Err(e) => {
+                println!("failed to get response: {}", e);
+                Ok(Async::Ready(()))
+            }
+        }
     }
 }
