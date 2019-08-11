@@ -54,7 +54,7 @@ fn crawl_api(config_path: &str) {
     // Read config
     let config_struct = Config::new(config_path);
 
-    let mut twitter = Pin::new(Twitter::new(config_struct));
+    let mut twitter = Box::pin(Twitter::new(config_struct));
     twitter.login();
     debug!("{:?}", twitter.status());
 

@@ -49,7 +49,7 @@ impl CkanAPI {
 
 pub struct GetPackageList {
     response: ResponseFuture,
-    twitter: Pin<Twitter>,
+    twitter: Pin<Box<Twitter>>,
 }
 
 impl Future for GetPackageList {
