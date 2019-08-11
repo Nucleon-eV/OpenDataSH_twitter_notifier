@@ -1,6 +1,6 @@
 [package]
 name = "OpenDataSH_twitter_notifier"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Marcel Radzio <mtrnord1@gmail.com>"]
 edition = "2018"
 description = "A twitter bot that posts a message for new datasets on the OpenData platform of Schleswig-Holstein"
@@ -26,3 +26,4 @@ egg-mode = { version = "0.13", features = ["hyper-rustls"], default-features = f
 tokio = "0.1"
 futures = "0.1.28"
 hyper-tls = "0.3.2"
+unicode-segmentation = "1.3.0"
