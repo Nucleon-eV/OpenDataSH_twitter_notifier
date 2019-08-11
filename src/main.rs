@@ -11,7 +11,6 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use clap::App;

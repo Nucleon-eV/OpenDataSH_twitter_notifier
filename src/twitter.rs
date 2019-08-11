@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::io::{stdin, stdout, Write};
 
-use egg_mode::tweet::DraftTweet;
 use egg_mode::Token;
+use egg_mode::tweet::DraftTweet;
 use futures::Future;
 use tokio::runtime::current_thread::block_on_all;
 
@@ -20,7 +20,7 @@ impl Default for LoginStatus {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy)]
 pub struct Twitter {
     config: Config,
     token: Option<Token>,
