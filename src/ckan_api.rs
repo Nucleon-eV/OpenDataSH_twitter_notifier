@@ -58,7 +58,7 @@ impl Future for GetPackageList {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.response.poll() {
-            Ok(Async::Ready(res)) => match res.body().poll() {
+            Ok(Async::Ready(res)) => match res.into_body().poll() {
                 Ok(Async::Ready(body)) => {
                     let data: PackageListResult = serde_json::from_slice(&body.unwrap()).unwrap();
                     let mut added_datasets: HashSet<String> = HashSet::new();
