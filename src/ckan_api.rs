@@ -3,12 +3,13 @@ use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use futures::{Async, Poll};
 use futures::future::Future;
 use futures::stream::Stream;
+use futures::{Async, Poll};
 use hyper::client::{HttpConnector, ResponseFuture};
-use hyper::Client;
+use hyper::{Body, Client, Response};
 use hyper_tls::HttpsConnector;
+use serde::de;
 
 use crate::twitter::Twitter;
 
@@ -19,6 +20,18 @@ pub struct PackageListResult {
     pub help: String,
     pub success: bool,
     pub result: Vec<String>,
+}
+
+impl PackageListResult {
+    fn deserialize(req: Response<Body>) -> serde_json::Result<Self>
+    where
+        for<'de> Self: de::Deserialize<'de>,
+    {
+        let (_, body) = req.into_parts();
+        // TODO handle error
+        let body = serde_json::from_slice(&body.concat2().wait().unwrap())?;
+        Ok(body)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -58,44 +71,38 @@ impl Future for GetPackageList {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.response.poll() {
-            Ok(Async::Ready(res)) => match res.into_body().poll() {
-                Ok(Async::Ready(body)) => {
-                    let data: PackageListResult = serde_json::from_slice(&body.unwrap()).unwrap();
-                    let mut added_datasets: HashSet<String> = HashSet::new();
-                    let mut removed_datasets: HashSet<String> = HashSet::new();
-                    if !Path::new("./data/").exists() {
-                        fs::create_dir_all("./data/");
-                    }
-                    if Path::new("./data/latestPackageList.json").exists() {
-                        let cache_file: String =
-                            fs::read_to_string("./data/latestPackageList.json").unwrap();
-                        let cache: HashSet<String> =
-                            serde_json::from_str::<Vec<String>>(cache_file.as_str())
-                                .unwrap()
-                                .iter()
-                                .cloned()
-                                .collect();
-                        let newdata: HashSet<String> = data.result.iter().cloned().collect();
-
-                        removed_datasets = cache.difference(&newdata).cloned().collect();
-                        added_datasets = newdata.difference(&cache).cloned().collect();
-                    }
-                    let serialized = serde_json::to_string(&data.result).unwrap();
-                    fs::write("./data/latestPackageList.json", serialized)
-                        .expect("Unable to write latestPackageList");
-
-                    self.twitter
-                        .lock()
-                        .unwrap()
-                        .post_changed_datasets(added_datasets, removed_datasets);
-                    Ok(Async::Ready(()))
+            Ok(Async::Ready(res)) => {
+                println!("WAAAHHHHH1");
+                let data: PackageListResult = PackageListResult::deserialize(res).unwrap();
+                let mut added_datasets: HashSet<String> = HashSet::new();
+                let mut removed_datasets: HashSet<String> = HashSet::new();
+                if !Path::new("./data/").exists() {
+                    fs::create_dir_all("./data/");
                 }
-                Ok(Async::NotReady) => Ok(Async::NotReady),
-                Err(e) => {
-                    println!("failed to get body: {}", e);
-                    Ok(Async::Ready(()))
+                if Path::new("./data/latestPackageList.json").exists() {
+                    let cache_file: String =
+                        fs::read_to_string("./data/latestPackageList.json").unwrap();
+                    let cache: HashSet<String> =
+                        serde_json::from_str::<Vec<String>>(cache_file.as_str())
+                            .unwrap()
+                            .iter()
+                            .cloned()
+                            .collect();
+                    let newdata: HashSet<String> = data.result.iter().cloned().collect();
+
+                    removed_datasets = cache.difference(&newdata).cloned().collect();
+                    added_datasets = newdata.difference(&cache).cloned().collect();
                 }
-            },
+                let serialized = serde_json::to_string(&data.result).unwrap();
+                fs::write("./data/latestPackageList.json", serialized)
+                    .expect("Unable to write latestPackageList");
+
+                self.twitter
+                    .lock()
+                    .unwrap()
+                    .post_changed_datasets(added_datasets, removed_datasets);
+                Ok(Async::Ready(()))
+            }
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(e) => {
                 println!("failed to get response: {}", e);
