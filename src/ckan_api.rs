@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
+use std::pin::Pin;
 
 use futures::{Async, Poll};
 use futures::future::Future;
@@ -48,7 +49,7 @@ impl CkanAPI {
 
 pub struct GetPackageList {
     response: ResponseFuture,
-    twitter: Twitter,
+    twitter: Pin<Twitter>,
 }
 
 impl Future for GetPackageList {

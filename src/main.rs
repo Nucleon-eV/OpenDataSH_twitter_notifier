@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
+use std::pin::Pin;
 use std::time::Duration;
 
 use clap::App;
@@ -53,7 +54,7 @@ fn crawl_api(config_path: &str) {
     // Read config
     let config_struct = Config::new(config_path);
 
-    let mut twitter = Twitter::new(config_struct);
+    let mut twitter = Pin::new(Twitter::new(config_struct));
     twitter.login();
     debug!("{:?}", twitter.status());
 
