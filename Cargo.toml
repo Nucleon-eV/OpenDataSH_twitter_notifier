@@ -3,6 +3,8 @@ name = "OpenDataSH_twitter_notifier"
 version = "0.1.0"
 authors = ["Marcel Radzio <mtrnord1@gmail.com>"]
 edition = "2018"
+description = "A twitter bot that posts a message for new datasets on the OpenData platform of Schleswig-Holstein"
+license = "agpl-3.0"
 
 include = [
     "src/cli.yml",
