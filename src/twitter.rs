@@ -1,10 +1,11 @@
 use std::collections::HashSet;
 use std::io::{stdin, stdout, Write};
 
-use egg_mode::Token;
 use egg_mode::tweet::DraftTweet;
+use egg_mode::Token;
 use futures::Future;
 use tokio::runtime::current_thread::block_on_all;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::config::Config;
 
@@ -94,8 +95,13 @@ impl Twitter {
         if !added_datasets.is_empty() {
             let added_text: Vec<String> =
                 added_datasets.iter().map(|x| format!("- {}", x)).collect();
+            let prefix = "Neue Datasets:\n{}\n#opendata #sh #datasets #open";
+            let characters_prefix: Vec<&str> =
+                UnicodeSegmentation::graphemes(prefix, true).collect::<Vec<&str>>();
 
-            let tweet_text = format!("Neue Datasets:\n{}", added_text.join("\n"));
+            //for datasets in added_text
+
+            let tweet_text = format!("{}{}", prefix, added_text.join("\n"));
             let tweet = DraftTweet::new(tweet_text);
             tokio::spawn(
                 tweet
@@ -111,7 +117,10 @@ impl Twitter {
                 .map(|x| format!("- {}", x))
                 .collect();
 
-            let tweet_text = format!("Entfernte Datasets:\n{}", removed_text.join("\n"));
+            let tweet_text = format!(
+                "Entfernte Datasets:\n{}\n#opendata #sh #datasets #open",
+                removed_text.join("\n")
+            );
             let tweet = DraftTweet::new(tweet_text);
             tokio::spawn(
                 tweet

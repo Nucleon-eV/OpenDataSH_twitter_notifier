@@ -72,7 +72,6 @@ impl Future for GetPackageList {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.response.poll() {
             Ok(Async::Ready(res)) => {
-                println!("WAAAHHHHH1");
                 let data: PackageListResult = PackageListResult::deserialize(res).unwrap();
                 let mut added_datasets: HashSet<String> = HashSet::new();
                 let mut removed_datasets: HashSet<String> = HashSet::new();
