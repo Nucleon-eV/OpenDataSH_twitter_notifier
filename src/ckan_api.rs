@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
-use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 
 use futures::{Async, Poll};
 use futures::future::Future;
@@ -48,8 +48,8 @@ impl CkanAPI {
 }
 
 pub struct GetPackageList {
-    response: ResponseFuture,
-    twitter: Pin<Box<Twitter>>,
+    pub response: ResponseFuture,
+    pub twitter: Arc<Mutex<Twitter>>,
 }
 
 impl Future for GetPackageList {
@@ -85,6 +85,8 @@ impl Future for GetPackageList {
                         .expect("Unable to write latestPackageList");
 
                     self.twitter
+                        .lock()
+                        .unwrap()
                         .post_changed_datasets(added_datasets, removed_datasets);
                     Ok(Async::Ready(()))
                 }

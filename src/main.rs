@@ -7,11 +7,9 @@ extern crate log;
 #[macro_use]
 extern crate serde;
 
-use std::collections::HashSet;
 use std::error::Error;
-use std::fs;
 use std::path::Path;
-use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use clap::App;
@@ -54,13 +52,13 @@ fn crawl_api(config_path: &str) {
     // Read config
     let config_struct = Config::new(config_path);
 
-    let mut twitter = Box::pin(Twitter::new(config_struct));
-    twitter.login();
-    debug!("{:?}", twitter.status());
+    let twitter = Arc::new(Mutex::new(Twitter::new(config_struct)));
+    twitter.lock().unwrap().login();
+    debug!("{:?}", twitter.lock().unwrap().status());
 
     let api_task = GetPackageList {
         response: CkanAPI::new().getPackageList(),
-        twitter,
+        twitter: twitter.clone(),
     };
 
     tokio::run(api_task);
@@ -71,7 +69,7 @@ fn crawl_api(config_path: &str) {
 
             let api_taskL = GetPackageList {
                 response: CkanAPI::new().getPackageList(),
-                twitter,
+                twitter: twitter.clone(),
             };
 
             tokio::spawn(api_taskL);
