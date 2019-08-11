@@ -1,7 +1,6 @@
 use std::collections::HashSet;
-use std::fs;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::{fs, io};
 
 use futures::future::Future;
 use futures::stream::Stream;
@@ -34,40 +33,50 @@ impl PackageListResult {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CkanAPI {
     /// hyper http client to build requests with.
     http: HttpsClient,
+    twitter: Twitter,
 }
 
 impl CkanAPI {
-    pub fn new() -> Self {
+    pub fn new(twitter: Twitter) -> Self {
         let http = {
             let connector = HttpsConnector::new(4).unwrap();
 
             Client::builder().build(connector)
         };
 
-        CkanAPI { http }
+        CkanAPI { http, twitter }
     }
 
-    pub fn getPackageList(&self) -> ResponseFuture {
+    pub fn getPackageList(&self) -> impl Future<Item = (), Error = io::Error> + Send {
+        GetPackageListFuture::new(self.http.clone(), self.twitter.clone())
+    }
+}
+
+pub struct GetPackageListFuture {
+    response: ResponseFuture,
+    twitter: Twitter,
+}
+
+impl GetPackageListFuture {
+    fn new(http: HttpsClient, twitter: Twitter) -> Self {
         let uri = "https://opendata.schleswig-holstein.de/api/3/action/package_list"
             .parse()
             .unwrap();
 
-        self.http.get(uri)
+        Self {
+            response: http.get(uri),
+            twitter,
+        }
     }
 }
 
-pub struct GetPackageList {
-    pub response: ResponseFuture,
-    pub twitter: Arc<Mutex<Twitter>>,
-}
-
-impl Future for GetPackageList {
+impl Future for GetPackageListFuture {
     type Item = ();
-    type Error = ();
+    type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.response.poll() {
@@ -97,8 +106,6 @@ impl Future for GetPackageList {
                     .expect("Unable to write latestPackageList");
 
                 self.twitter
-                    .lock()
-                    .unwrap()
                     .post_changed_datasets(added_datasets, removed_datasets);
                 Ok(Async::Ready(()))
             }

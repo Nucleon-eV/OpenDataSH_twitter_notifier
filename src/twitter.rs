@@ -21,7 +21,7 @@ impl Default for LoginStatus {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Twitter {
     config: Config,
     token: Option<Token>,

@@ -8,17 +8,17 @@ extern crate log;
 extern crate serde;
 
 use std::error::Error;
+use std::io;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use clap::App;
-use futures::future::Future;
+use futures::future::{result, Future, FutureResult};
 use futures::Stream;
 use log::Level;
 use tokio::timer::Interval;
 
-use crate::ckan_api::{CkanAPI, GetPackageList};
+use crate::ckan_api::CkanAPI;
 use crate::config::Config;
 use crate::twitter::Twitter;
 
@@ -52,30 +52,27 @@ fn crawl_api(config_path: &str) {
     // Read config
     let config_struct = Config::new(config_path);
 
-    let twitter = Arc::new(Mutex::new(Twitter::new(config_struct)));
-    twitter.lock().unwrap().login();
-    debug!("{:?}", twitter.lock().unwrap().status());
+    let twitter = &mut Twitter::new(config_struct);
+    twitter.login();
+    debug!("{:?}", twitter.status());
 
-    let api_task = GetPackageList {
-        response: CkanAPI::new().getPackageList(),
-        twitter: twitter.clone(),
-    };
+    let tclone = twitter.clone();
+    let api_task = CkanAPI::new(tclone.clone()).getPackageList();
 
-    tokio::run(api_task);
+    let taskOuter = api_task.and_then(|_| -> FutureResult<(), io::Error> {
+        let task = Interval::new_interval(Duration::from_secs(60 * 60))
+            .for_each(move |instant| {
+                info!("fire; instant={:?}", instant);
 
-    let task = Interval::new_interval(Duration::from_secs(60 * 60))
-        .for_each(move |instant| {
-            info!("fire; instant={:?}", instant);
+                let api_taskL = CkanAPI::new(tclone.clone()).getPackageList();
 
-            let api_taskL = GetPackageList {
-                response: CkanAPI::new().getPackageList(),
-                twitter: twitter.clone(),
-            };
+                tokio::spawn(api_taskL.map_err(|e| error!("most inner errored; err={:?}", e)));
+                Ok(())
+            })
+            .map_err(|e| error!("interval errored; err={:?}", e));
 
-            tokio::spawn(api_taskL);
-            Ok(())
-        })
-        .map_err(|e| error!("interval errored; err={:?}", e));
-
-    tokio::run(task);
+        tokio::spawn(task);
+        result::<(), io::Error>(Ok(()))
+    });
+    tokio::run(taskOuter.map_err(|e| error!("outer errored; err={:?}", e)));
 }
