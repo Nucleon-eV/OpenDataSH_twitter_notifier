@@ -5,6 +5,7 @@ authors = ["Marcel Radzio <mtrnord1@gmail.com>"]
 edition = "2018"
 description = "A twitter bot that posts a message for new datasets on the OpenData platform of Schleswig-Holstein"
 license = "agpl-3.0"
+repository = "https://github.com/Nucleon-eV/OpenDataSH_twitter_notifier"
 
 include = [
     "src/cli.yml",
