@@ -1,10 +1,8 @@
 use std::collections::HashSet;
 use std::io::{stdin, stdout, Write};
 
-use egg_mode::tweet::DraftTweet;
 use egg_mode::Token;
-use futures::Future;
-use tokio::runtime::current_thread::block_on_all;
+use egg_mode::tweet::DraftTweet;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::config::Config;
@@ -41,14 +39,14 @@ impl Twitter {
         }
     }
 
-    pub fn login(&mut self) {
+    pub async fn login(&mut self) -> Result<(), egg_mode::error::Error> {
         let config = &self.config;
         let tokens = &config.tokens;
 
         // Prepare twitter auth
         let con_token =
             egg_mode::KeyPair::new(tokens.consumer_key.clone(), tokens.consumer_secret.clone());
-        let request_token = block_on_all(egg_mode::request_token(&con_token, "oob")).unwrap();
+        let request_token = egg_mode::request_token(&con_token, "oob").await?;
         let auth_url = egg_mode::authorize_url(&request_token);
 
         // Print auth URL
@@ -56,7 +54,7 @@ impl Twitter {
 
         // Get user Input
         let mut verifier = String::new();
-        print!("Please enter the auth verifier: ");
+        info!("Please enter the auth verifier: ");
         let _ = stdout().flush();
 
         stdin()
@@ -70,26 +68,31 @@ impl Twitter {
             verifier.pop();
         }
 
+        debug!("got input");
+
         let (token, user_id, screen_name) =
-            block_on_all(egg_mode::access_token(con_token, &request_token, verifier))
-                .expect("Failed to login!");
+            egg_mode::access_token(con_token, &request_token, verifier).await?;
+        debug!("got auth stuff");
+
         self.token = Some(token);
         self.user_id = Some(user_id);
         self.screen_name = Some(screen_name);
         self.logged_in = LoginStatus::LoggedIn;
+        debug!("{:?}",self.status());
+        Ok(())
     }
     pub fn status(&self) -> &LoginStatus {
         return &self.logged_in;
     }
 
-    pub fn post_changed_datasets(
+    pub async fn post_changed_datasets(
         &self,
         added_datasets: HashSet<String>,
         removed_datasets: HashSet<String>,
-    ) {
+    ) -> Result<(), egg_mode::error::Error> {
         if self.status().to_owned() == LoginStatus::LoggedOut {
             error!("NOT LOGGED IN TWITTER");
-            return;
+            return Ok(());
         }
         // TODO watch the key limit
         if !added_datasets.is_empty() {
@@ -103,12 +106,11 @@ impl Twitter {
 
             let tweet_text = format!("{}{}", prefix, added_text.join("\n"));
             let tweet = DraftTweet::new(tweet_text);
-            tokio::spawn(
-                tweet
-                    .send(Option::as_ref(&self.token).unwrap())
-                    .map_err(|_| ())
-                    .and_then(|_| Ok(())),
-            );
+            tweet
+                .send(Option::as_ref(&self.token).unwrap())
+                .await
+                .expect("Failed to send tweet");
+            return Ok(());
         }
 
         if !removed_datasets.is_empty() {
@@ -122,13 +124,13 @@ impl Twitter {
                 removed_text.join("\n")
             );
             let tweet = DraftTweet::new(tweet_text);
-            tokio::spawn(
-                tweet
-                    .send(Option::as_ref(&self.token).unwrap())
-                    .map_err(|_| ())
-                    .and_then(|_| Ok(())),
-            );
+            tweet
+                .send(Option::as_ref(&self.token).unwrap())
+                .await
+                .expect("Failed to send tweet");
+            return Ok(());
         }
+        return Ok(());
     }
 
     // TODO add the sending part
